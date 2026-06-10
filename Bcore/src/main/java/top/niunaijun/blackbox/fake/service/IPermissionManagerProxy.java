@@ -1,22 +1,20 @@
 package top.niunaijun.blackbox.fake.service;
 
 import android.content.pm.PackageManager;
+import java.lang.reflect.Method;
+import android.os.IBinder;
 
 import black.android.app.BRActivityThread;
-import black.android.app.BRContextImpl;
 import black.android.os.BRServiceManager;
 import black.android.permission.BRIPermissionManagerStub;
-import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.fake.hook.BinderInvocationStub;
-import top.niunaijun.blackbox.fake.service.base.PkgMethodProxy;
-import top.niunaijun.blackbox.fake.service.base.ValueMethodProxy;
-import top.niunaijun.blackbox.utils.Reflector;
-import top.niunaijun.blackbox.utils.compat.BuildCompat;
-
+import top.niunaijun.blackbox.fake.hook.MethodHook;
+import top.niunaijun.blackbox.fake.hook.ProxyMethod;
+import top.niunaijun.blackbox.utils.MethodParameterUtils;
+import top.niunaijun.blackbox.utils.Slog;
 
 public class IPermissionManagerProxy extends BinderInvocationStub {
     public static final String TAG = "IPermissionManagerProxy";
-
     private static final String P = "permissionmgr";
 
     public IPermissionManagerProxy() {
@@ -25,34 +23,16 @@ public class IPermissionManagerProxy extends BinderInvocationStub {
 
     @Override
     protected Object getWho() {
-        return BRIPermissionManagerStub.get().asInterface(BRServiceManager.get().getService(P));
+        IBinder binder = BRServiceManager.get().getService(P);
+        return BRIPermissionManagerStub.get().asInterface(binder);
     }
 
     @Override
     protected void inject(Object baseInvocation, Object proxyInvocation) {
-        replaceSystemService("permissionmgr");
-        BRActivityThread.getWithException()._set_sPermissionManager(proxyInvocation);
-        
-    }
-
-    @Override
-    protected void onBindMethod() {
-        super.onBindMethod();
-        addMethodHook(new ValueMethodProxy("addPermissionAsync", true));
-        addMethodHook(new ValueMethodProxy("addPermission", true));
-        addMethodHook(new ValueMethodProxy("performDexOpt", true));
-        addMethodHook(new ValueMethodProxy("performDexOptIfNeeded", false));
-        addMethodHook(new ValueMethodProxy("performDexOptSecondary", true));
-        addMethodHook(new ValueMethodProxy("addOnPermissionsChangeListener", 0));
-        addMethodHook(new ValueMethodProxy("removeOnPermissionsChangeListener", 0));
-        addMethodHook(new ValueMethodProxy("checkDeviceIdentifierAccess", false));
-        addMethodHook(new PkgMethodProxy("shouldShowRequestPermissionRationale"));
-        if (BuildCompat.isOreo()) {
-            addMethodHook(new ValueMethodProxy("notifyDexLoad", 0));
-            addMethodHook(new ValueMethodProxy("notifyPackageUse", 0));
-            addMethodHook(new ValueMethodProxy("setInstantAppCookie", false));
-            addMethodHook(new ValueMethodProxy("isInstantApp", false));
-        }
+        replaceSystemService(P);
+        try {
+            BRActivityThread.getWithException()._set_sPermissionManager(proxyInvocation);
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -60,4 +40,11 @@ public class IPermissionManagerProxy extends BinderInvocationStub {
         return false;
     }
 
+    @ProxyMethod("checkPermission")
+    public static class CheckPermission extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            return PackageManager.PERMISSION_GRANTED;
+        }
+    }
 }
