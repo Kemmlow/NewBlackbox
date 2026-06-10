@@ -1,8 +1,11 @@
 package top.niunaijun.blackbox.fake.service.libcore;
 
 import android.os.Process;
-
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.Inet6Address;
+import java.net.InetSocketAddress;
+import java.net.ConnectException;
 
 import black.libcore.io.BRLibcore;
 import top.niunaijun.blackbox.BlackBoxCore;
@@ -12,7 +15,7 @@ import top.niunaijun.blackbox.fake.hook.ClassInvocationStub;
 import top.niunaijun.blackbox.fake.hook.MethodHook;
 import top.niunaijun.blackbox.fake.hook.ProxyMethod;
 import top.niunaijun.blackbox.utils.Reflector;
-
+import top.niunaijun.blackbox.utils.Slog;
 
 public class OsStub extends ClassInvocationStub {
     public static final String TAG = "OsStub";
@@ -33,10 +36,6 @@ public class OsStub extends ClassInvocationStub {
     }
 
     @Override
-    protected void onBindMethod() {
-    }
-
-    @Override
     public boolean isBadEnv() {
         return BRLibcore.get().os() != getProxyInvocation();
     }
@@ -45,54 +44,45 @@ public class OsStub extends ClassInvocationStub {
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if (args != null) {
             for (int i = 0; i < args.length; i++) {
-                if (args[i] == null)
-                    continue;
                 if (args[i] instanceof String && ((String) args[i]).startsWith("/")) {
-                    String orig = (String) args[i];
-                    args[i] = IOCore.get().redirectPath(orig);
-
-
-
+                    args[i] = IOCore.get().redirectPath((String) args[i]);
                 }
             }
         }
         return super.invoke(proxy, method, args);
     }
 
+    @ProxyMethod("connect")
+    public static class Connect extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            if (args.length > 1 && args[1] instanceof InetSocketAddress) {
+                InetSocketAddress address = (InetSocketAddress) args[1];
+                InetAddress inetAddress = address.getAddress();
+                if (inetAddress != null && (inetAddress.isLoopbackAddress() ||
+                    inetAddress.getHostAddress().equals("::1") ||
+                    inetAddress.getHostAddress().equals("127.0.0.1"))) {
+                    Slog.d(TAG, "Loopback isolation: Blocking connection to " + address);
+                    throw new ConnectException("Connection refused (sandboxed)");
+                }
+            }
+            return method.invoke(who, args);
+        }
+    }
+
     @ProxyMethod("getuid")
     public static class getuid extends MethodHook {
-
         @Override
         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
-            int callUid = (int) method.invoke(who, args);
-            return getFakeUid(callUid);
-        }
-    }
-
-    @ProxyMethod("stat")
-    public static class stat extends MethodHook {
-
-        @Override
-        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
-            Object invoke = null;
-            try {
-                invoke = method.invoke(who, args);
-            } catch (Throwable e) {
-                throw e.getCause();
-            }
-            Reflector.with(invoke).field("st_uid").set(getFakeUid(-1));
-            return invoke;
-        }
-    }
-
-    private static int getFakeUid(int callUid) {
-        if (callUid > 0 && callUid <= Process.FIRST_APPLICATION_UID)
-            return callUid;
-
-        if (BActivityThread.isThreadInit() && BActivityThread.currentActivityThread().isInit()) {
             return BActivityThread.getBAppId();
-        } else {
-            return BlackBoxCore.getHostUid();
+        }
+    }
+
+    @ProxyMethod("getgid")
+    public static class getgid extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            return BActivityThread.getBAppId();
         }
     }
 }

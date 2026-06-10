@@ -13,6 +13,7 @@ import top.niunaijun.blackbox.fake.service.IAccessibilityManagerProxy;
 import top.niunaijun.blackbox.fake.service.IAccountManagerProxy;
 import top.niunaijun.blackbox.fake.service.IActivityClientProxy;
 import top.niunaijun.blackbox.fake.service.IActivityManagerProxy;
+import top.niunaijun.blackbox.fake.service.ILocaleManagerProxy;
 import top.niunaijun.blackbox.fake.service.IActivityTaskManagerProxy;
 import top.niunaijun.blackbox.fake.service.IAlarmManagerProxy;
 import top.niunaijun.blackbox.fake.service.IAppOpsManagerProxy;
@@ -148,6 +149,7 @@ public class HookManager {
             addInjector(new AndroidIdProxy());
             addInjector(new AudioPermissionProxy());
             addInjector(new ILocationManagerProxy());
+            addInjector(new ILocaleManagerProxy());
             addInjector(new IStorageManagerProxy());
             addInjector(new ILauncherAppsProxy());
             addInjector(new IJobServiceProxy());
