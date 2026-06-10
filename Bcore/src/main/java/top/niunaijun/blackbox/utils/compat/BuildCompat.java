@@ -43,6 +43,6 @@ public class BuildCompat {
         return Build.VERSION.SDK_INT >= 21;
     }
     public static boolean isMIUI() {
-        return false; // Simplified
+        return false;
     }
 }

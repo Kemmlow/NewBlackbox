@@ -1,4 +1,6 @@
 package top.niunaijun.blackbox.app;
+import top.niunaijun.blackbox.core.lsposed.LSPosedEngine;
+import top.niunaijun.blackbox.core.lsposed.ZygiskEngine;
 
 import android.app.Activity;
 import android.app.Application;
@@ -425,6 +427,7 @@ public class BActivityThread extends IBActivityThread.Stub {
         }
         Application application;
         try {
+            ZygiskEngine.preAppLaunch(packageName, processName);
             onBeforeCreateApplication(packageName, processName, packageContext);
             
             
@@ -477,6 +480,8 @@ public class BActivityThread extends IBActivityThread.Stub {
             onBeforeApplicationOnCreate(packageName, processName, application);
             AppInstrumentation.get().callApplicationOnCreate(application);
             onAfterApplicationOnCreate(packageName, processName, application);
+            LSPosedEngine.loadModules(packageName, processName, application.getClassLoader(), applicationInfo);
+            ZygiskEngine.postAppLaunch(packageName, processName);
 
             HookManager.get().checkEnv(HCallbackProxy.class);
         } catch (Exception e) {
